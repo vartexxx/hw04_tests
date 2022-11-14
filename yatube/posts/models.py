@@ -45,7 +45,6 @@ class Post(models.Model):
     автор - author (ссылка на модель User)
     сообщество - group (ссылка на модель Group)"""
     text = models.TextField(
-        max_length=200,
         verbose_name="Текст поста",
         help_text="Введите текст поста"
     )

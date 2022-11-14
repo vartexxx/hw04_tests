@@ -1,10 +1,8 @@
-from django.contrib.auth import get_user_model
+from django import forms
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from ..models import Post, Group
-
-User = get_user_model()
+from ..models import Post, Group, User
 
 
 class PostsCreateFormTests(TestCase):
@@ -12,16 +10,22 @@ class PostsCreateFormTests(TestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.user = User.objects.create_user(username='user')
-        cls.group = Group.objects.create(
-            title='Тестовая группа',
-            slug='slug-for-test',
-            description='Тестовое описание',
+        cls.group_1 = Group.objects.create(
+            title='Тестовая группа 1',
+            slug='slug-for-test_1',
+            description='Тестовое описание 1',
+        )
+        cls.group_2 = Group.objects.create(
+            title='Тестовая группа 2',
+            slug='slug-for-test_2',
+            description='Тестовое описание 2',
         )
         cls.post = Post.objects.create(
             author=cls.user,
             text='Тестовый пост',
-            group=cls.group,
+            group=cls.group_1,
         )
+        cls.posts_initially = Post.objects.count()
 
     def setUp(self) -> None:
         self.authorized_client = Client()
@@ -29,48 +33,75 @@ class PostsCreateFormTests(TestCase):
 
     def test_create_post(self):
         """Проверка создания новой записи"""
-        posts_count = Post.objects.count()
+        post_before_create = set(Post.objects.all())
         post_form_data = {
             'text': 'Тестовый пост',
-            'group': self.group.id,
-            'author': self.user,
+            'group': self.group_1.id,
         }
-        response = self.authorized_client.post(
+        self.authorized_client.post(
             reverse('posts:post_create'),
             data=post_form_data,
             follow=True
         )
-        last_post = Post.objects.all().last()
-        self.assertRedirects(
-            response,
-            reverse(
-                'posts:profile',
-                kwargs={'username': self.post.author}
-            )
+        self.assertEqual(
+            Post.objects.count(),
+            self.posts_initially + 1
         )
-        self.assertEqual(Post.objects.count(), posts_count + 1)
-        self.assertEqual(last_post.text, 'Тестовый пост')
-        self.assertEqual(last_post.group, self.group)
-        self.assertEqual(last_post.author, self.user)
+        created_posts = set(Post.objects.all()) - post_before_create
+        post = Post.objects.get(id=1)
+        self.assertTrue(len(created_posts) == 1)
+        self.assertEqual(
+            post.text,
+            post_form_data['text']
+        )
+        self.assertEqual(
+            post.group.id,
+            post_form_data['group']
+        )
 
     def test_edit_post(self):
         """Проверка редактирования записи"""
         post_edit_form_data = {
             'text': 'Изменённый текст',
-            'group': self.group.id,
+            'group': self.group_2.id,
         }
         response = self.authorized_client.post(
-            reverse('posts:post_edit', kwargs={'post_id': self.post.id}),
+            reverse('posts:post_edit', args=[self.post.id]),
             data=post_edit_form_data,
             follow=True
         )
-        last_post = Post.objects.all().last()
+        post_edited = Post.objects.get(id=self.post.id)
         self.assertRedirects(
             response,
             reverse(
                 'posts:post_detail',
-                kwargs={'post_id': last_post.id}
+                args=[post_edited.id]
             )
         )
-        self.assertEqual(last_post.text, 'Изменённый текст')
-        self.assertEqual(last_post.group, self.group)
+        self.assertEqual(
+            post_edited.text,
+            post_edit_form_data['text']
+        )
+        self.assertEqual(
+            post_edited.group.id,
+            post_edit_form_data['group']
+        )
+
+    def test_create_post_page_show_correct_context(self):
+        """
+        Шаблон create_post при создании поста сформирован
+        с правильным контекстом.
+        """
+        response = self.authorized_client.get(
+            reverse(
+                'posts:post_create'
+            )
+        )
+        form_fields = {
+            'text': forms.fields.CharField,
+            'group': forms.fields.ChoiceField,
+        }
+        for value, expected in form_fields.items():
+            with self.subTest(value=value):
+                form_field = response.context.get('form').fields.get(value)
+                self.assertIsInstance(form_field, expected)

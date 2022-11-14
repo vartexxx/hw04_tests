@@ -1,12 +1,9 @@
 from http import HTTPStatus
 
-from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 from django.urls import reverse
 
-from ..models import Post, Group
-
-User = get_user_model()
+from ..models import Post, Group, User
 
 
 class PostsURLTests(TestCase):
@@ -35,102 +32,87 @@ class PostsURLTests(TestCase):
         self.author_client = Client()
         self.author_client.force_login(self.user_author)
 
-    def test_urls_exists_at_desired_location_for_geusts(self):
-        """Страницы доступны для неавторизованных пользователей"""
-        urls_collection = {
-            reverse(
-                'posts:index'
-            ): HTTPStatus.OK,
-            reverse(
-                'posts:group_list',
-                kwargs={'slug': self.group.slug}
-            ):
-                HTTPStatus.OK,
-            reverse(
-                'posts:profile',
-                kwargs={'username': self.user_author.username}
-            ): HTTPStatus.OK,
-            reverse(
-                'posts:post_detail',
-                kwargs={'post_id': self.post.id}
-            ): HTTPStatus.OK,
-            reverse(
-                'posts:post_edit',
-                kwargs={'post_id': self.post.id}
-            ): HTTPStatus.FOUND,
-            reverse(
-                'posts:post_create'
-            ): HTTPStatus.FOUND,
-            '/non_existing_page/': HTTPStatus.NOT_FOUND
+        self.urls_templates = (
+            reverse('posts:index'),
+            reverse('posts:group_list', args=[self.group.slug]),
+            reverse('posts:profile', args=[self.user_author.username]),
+            reverse('posts:post_detail', args=[self.post.id]),
+            reverse('posts:post_edit', args=[self.post.id]),
+            reverse('posts:post_create'),
+            '/non_existing_page/',
+        )
+        self.urls_redirect = {
+            '/posts/' + str(self.post.id) + '/edit/':
+                '/auth/login/?next=/posts/' + str(self.post.id) + '/edit/',
+            '/create/':
+                '/auth/login/?next=/create/',
+        }
+        self.urls_routes = {
+            '/': 'posts/index.html',
+            '/group/' + str(self.group.slug) + '/': 'posts/group_list.html',
+            '/profile/' + str(self.user.username) + '/': 'posts/profile.html',
+            '/create/': 'posts/create_post.html',
+            '/posts/' + str(self.post.id) + '/edit/': 'posts/create_post.html',
+            '/posts/' + str(self.post.id) + '/': 'posts/post_detail.html',
         }
 
-        for url, http_status in urls_collection.items():
-            with self.subTest(address=url):
-                response = self.guest_client.get(url)
-                self.assertEqual(response.status_code, http_status)
+    def test_posts_urls_exists_at_desired_location_any_types_of_users(self):
+        """
+        Проверка доступа к URL различного уровня
+        авторизации пользователей.
+        """
+        for page in self.urls_templates:
+            try:
+                try:
+                    try:
+                        self.assertEqual(
+                            self.guest_client.get(page).status_code,
+                            HTTPStatus.OK
+                        )
+                    except AssertionError:
+                        self.assertEqual(
+                            self.authorized_client.get(page).status_code,
+                            HTTPStatus.OK
+                        )
+                except AssertionError:
+                    self.assertEqual(
+                        self.author_client.get(page).status_code,
+                        HTTPStatus.OK
+                    )
+            except AssertionError:
+                self.assertEqual(
+                    self.guest_client.get(page).status_code,
+                    HTTPStatus.NOT_FOUND
+                )
+                self.assertEqual(
+                    self.authorized_client.get(page).status_code,
+                    HTTPStatus.NOT_FOUND
+                )
+                self.assertEqual(
+                    self.author_client.get(page).status_code,
+                    HTTPStatus.NOT_FOUND
+                )
 
-    def test_urls_exists_at_desired_location_for_authors(self):
-        """Страницы доступны для авторов"""
-        urls_collection = {
-            reverse(
-                'posts:index'
-            ): HTTPStatus.OK,
-            reverse(
-                'posts:group_list',
-                kwargs={'slug': self.group.slug}
-            ):
-                HTTPStatus.OK,
-            reverse(
-                'posts:profile',
-                kwargs={'username': self.user_author.username}
-            ): HTTPStatus.OK,
-            reverse(
-                'posts:post_detail',
-                kwargs={'post_id': self.post.id}
-            ): HTTPStatus.OK,
-            reverse(
-                'posts:post_edit',
-                kwargs={'post_id': self.post.id}
-            ): HTTPStatus.OK,
-            reverse(
-                'posts:post_create'
-            ): HTTPStatus.OK,
-            '/non_existing_page/': HTTPStatus.NOT_FOUND
-        }
-        for url, http_status in urls_collection.items():
-            with self.subTest(address=url):
-                response = self.author_client.get(url)
-                self.assertEqual(response.status_code, http_status)
+    def test_posts_urls_redirect(self):
+        """Проверка редиректов для пользователей типа - гость."""
+        for url, redirect_page in self.urls_redirect.items():
+            with self.subTest(redirect_page=redirect_page):
+                self.assertRedirects(
+                    self.guest_client.get(url, follow=True),
+                    redirect_page
+                )
 
-    def test_urls_exists_at_desired_location_for_users(self):
-        """Страницы доступны для авторизованных пользователей"""
-        urls_collection = {
-            reverse(
-                'posts:index'
-            ): HTTPStatus.OK,
-            reverse(
-                'posts:group_list',
-                kwargs={'slug': self.group.slug}
-            ):
-                HTTPStatus.OK,
-            reverse(
-                'posts:profile',
-                kwargs={'username': self.user_author.username}
-            ): HTTPStatus.OK,
-            reverse(
-                'posts:post_detail',
-                kwargs={'post_id': self.post.id}
-            ): HTTPStatus.OK,
-            reverse(
-                'posts:post_edit',
-                kwargs={'post_id': self.post.id}
-            ): HTTPStatus.FOUND,
-            reverse(
-                'posts:post_create'
-            ): HTTPStatus.OK,
-            '/non_existing_page/': HTTPStatus.NOT_FOUND
-        }
-        for url, http_status in urls_collection.items():
-            with self.subTest(address=url):
-                response = self.authorized_client.get(url)
-                self.assertEqual(response.status_code, http_status)
+    def test_posts_urls_uses_correct_template(self):
+        """URL - адрес приложения Posts использует соответствующий шаблон."""
+        for url, template in self.urls_routes.items():
+            with self.subTest(template=template):
+                try:
+                    self.assertTemplateUsed(
+                        self.authorized_client.get(url),
+                        template
+                    )
+                except AssertionError:
+                    self.assertTemplateUsed(
+                        self.author_client.get(url),
+                        template
+                    )

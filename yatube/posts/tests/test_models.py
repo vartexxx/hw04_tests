@@ -1,9 +1,7 @@
-from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.test import TestCase
 
-from ..models import Group, Post
-
-User = get_user_model()
+from ..models import Group, Post, User
 
 
 class PostModelTest(TestCase):
@@ -17,24 +15,17 @@ class PostModelTest(TestCase):
         )
         cls.post = Post.objects.create(
             author=User.objects.create_user(username='auth'),
-            text='Текстовый пост',
+            text='Тестовый пост длинною больше 15 символов',
             group=cls.group,
         )
 
     def test_models_have_correct_object_names(self):
-        self.group = PostModelTest.group
-        self.group_str = str(self.group)
-        self.assertEqual(
-            len(str(PostModelTest.post)),
-            14
-        )
-        self.assertEqual(
-            self.group_str,
-            self.group.title
-        )
+        """Корректно работает метод __str__ моделей Group, Post."""
+        self.assertEqual(str(self.group), self.group.title)
+        self.assertEqual(str(self.post), self.post.text[:settings.CROP_TEXT])
 
     def test_verbose_name(self):
-        post = PostModelTest.post
+        """Корректно прописаны verbose_name."""
         field_verboses = {
             'text': 'Текст поста',
             'pub_date': 'Дата публикации',
@@ -44,12 +35,12 @@ class PostModelTest(TestCase):
         for field, expected_value in field_verboses.items():
             with self.subTest(field=field):
                 self.assertEqual(
-                    post._meta.get_field(field).verbose_name,
+                    Post._meta.get_field(field).verbose_name,
                     expected_value
                 )
 
     def test_help_text(self):
-        post = PostModelTest.post
+        """Корректно прописаны help_text"""
         field_help_texts = {
             'text': "Введите текст поста",
             'pub_date': "Укажите дату публикации",
@@ -59,6 +50,6 @@ class PostModelTest(TestCase):
         for field, expected_value in field_help_texts.items():
             with self.subTest(field=field):
                 self.assertEqual(
-                    post._meta.get_field(field).help_text,
+                    Post._meta.get_field(field).help_text,
                     expected_value
                 )

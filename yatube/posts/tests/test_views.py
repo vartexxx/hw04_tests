@@ -1,12 +1,10 @@
 from django.conf import settings
-from django import forms
-from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from ..models import Group, Post
+from ..models import Group, Post, User
 
-User = get_user_model()
+POSTS_ON_PAGES = 13
 
 
 class PostViewsTest(TestCase):
@@ -28,34 +26,6 @@ class PostViewsTest(TestCase):
     def setUp(self) -> None:
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
-
-    def test_posts_pages_uses_correct_template(self):
-        """URL - адрес приложения Posts использует соответствующий шаблон."""
-        templates_pages_names = {
-            'posts/index.html': reverse(
-                'posts:index'
-            ),
-            'posts/group_list.html': reverse(
-                'posts:group_list',
-                kwargs={'slug': self.group.slug}
-            ),
-            'posts/profile.html': reverse(
-                'posts:profile',
-                kwargs={'username': self.user}
-            ),
-            'posts/post_detail.html': reverse(
-                'posts:post_detail',
-                kwargs={'post_id': self.post.id}
-            ),
-            'posts/create_post.html': reverse(
-                'posts:post_edit',
-                kwargs={'post_id': self.post.id}
-            ),
-        }
-        for template, reverse_name in templates_pages_names.items():
-            with self.subTest(reverse_name=reverse_name):
-                response = self.authorized_client.get(reverse_name)
-                self.assertTemplateUsed(response, template)
 
     def test_index_page_show_correct_context(self):
         """Шаблон index сформирован с правильным контекстом."""
@@ -136,25 +106,6 @@ class PostViewsTest(TestCase):
             response.context.get('post').group.title,
             'Тестовая группа'
         )
-
-    def test_create_post_page_show_correct_context(self):
-        """
-        Шаблон create_post при создании поста сформирован
-        с правильным контекстом.
-        """
-        response = self.authorized_client.get(
-            reverse(
-                'posts:post_create'
-            )
-        )
-        form_fields = {
-            'text': forms.fields.CharField,
-            'group': forms.fields.ChoiceField,
-        }
-        for value, expected in form_fields.items():
-            with self.subTest(value=value):
-                form_field = response.context.get('form').fields.get(value)
-                self.assertIsInstance(form_field, expected)
 
 
 class PaginatorViewsTest(TestCase):
