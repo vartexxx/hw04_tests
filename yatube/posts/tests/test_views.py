@@ -7,6 +7,7 @@ from ..models import Group, Post, User
 POSTS_ON_PAGE = 13
 SECOND_PAGE_POSTS = 3
 
+
 class PostViewsTest(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
