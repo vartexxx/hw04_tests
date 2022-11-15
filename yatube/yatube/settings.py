@@ -66,7 +66,6 @@ CROP_TEXT = 15
 LIMIT_OF_POSTS = 10
 
 
-
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
