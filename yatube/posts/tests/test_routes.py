@@ -1,12 +1,11 @@
-from django.test import TestCase, Client
+from django.test import TestCase
 from django.urls import resolve, reverse
-
-from ..models import Post, Group, User
 
 SLUG_FOR_TEST = 'slug-for-test'
 USERNAME_FOR_TEST = 'user'
+POST_ID = 1
 
-templates_urls = {
+urls = {
     'posts:index': {
         'reverse': reverse('posts:index'),
         'url': '/'
@@ -23,41 +22,22 @@ templates_urls = {
         'reverse': reverse('posts:post_create'),
         'url': '/create/'
     },
+    'posts:post_detail': {
+        'reverse': reverse('posts:post_detail', args=[POST_ID]),
+        'url': f'/posts/{POST_ID}/'
+    },
+    'posts:post_edit': {
+        'reverse': reverse('posts:post_edit', args=[POST_ID]),
+        'url': f'/posts/{POST_ID}/edit/'
+    }
 }
 
 
 class RoutesTest(TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-        cls.user = User.objects.create_user(username='user')
-        cls.user_author = User.objects.create_user(username='author')
-        cls.post = Post.objects.create(
-            author=cls.user_author,
-            text='Тестовый пост',
-        )
-        cls.group = Group.objects.create(
-            title='Тестовая группа',
-            slug='slug-for-test',
-            description='Тестовое описание',
-        )
-        templates_urls['posts:post_detail'] = {
-            'reverse': reverse('posts:post_detail', args=[cls.post.id]),
-            'url': f'/posts/{cls.post.id}/'
-        }
-        templates_urls['posts:post_edit'] = {
-            'reverse': reverse('posts:post_edit', args=[cls.post.id]),
-            'url': f'/posts/{cls.post.id}/edit/'
-        }
-
-    def setUp(self) -> None:
-        self.guest_client = Client()
-        self.authorized_client = Client()
-        self.authorized_client.force_login(self.user)
 
     def test_urls_routes(self):
         """Проверка ожидаемых маршрутов URL"""
-        for namespace, key in templates_urls.items():
+        for namespace, key in urls.items():
             with self.subTest(view=namespace, url=key['url']):
                 self.assertEqual(
                     resolve(key['url']).view_name,
