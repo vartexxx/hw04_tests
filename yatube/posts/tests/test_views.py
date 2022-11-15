@@ -24,16 +24,6 @@ class PostViewsTest(TestCase):
             text='Тестовый пост',
             group=cls.group,
         )
-        cls.group_2 = Group.objects.create(
-            title='Тестовая группа 2',
-            slug='slug-for-test-2',
-        )
-        cls.posts_count = Post.objects.filter(group=cls.group).count()
-        cls.post_2 = Post.objects.create(
-            text='Тестовый пост автора 2',
-            author=cls.user_2,
-            group=cls.group_2
-        )
 
     def setUp(self) -> None:
         self.authorized_client = Client()
@@ -85,18 +75,28 @@ class PostViewsTest(TestCase):
         Пост при создании не попадает на чужую групп-ленту
         но виден на главной и в группе
         """
+        group_2 = Group.objects.create(
+            title='Тестовая группа 2',
+            slug='slug-for-test-2',
+        )
+        posts_count = Post.objects.filter(group=self.group).count()
+        post_2 = Post.objects.create(
+            text='Тестовый пост автора 2',
+            author=self.user_2,
+            group=group_2
+        )
         response = self.authorized_client.get(
             self.urls_templates[2]
         )
         group = Post.objects.filter(group=self.group).count()
         profile = response.context['page_obj']
         self.assertNotIn(
-            self.post_2,
+            post_2,
             profile
         )
         self.assertEqual(
             group,
-            self.posts_count
+            posts_count
         )
 
 
