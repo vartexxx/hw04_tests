@@ -64,7 +64,7 @@ TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
 
 CROP_TEXT = 15
 LIMIT_OF_POSTS = 10
-SECOND_PAGE_POSTS = 3
+
 
 
 TEMPLATES = [

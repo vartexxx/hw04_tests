@@ -5,7 +5,7 @@ from django.urls import reverse
 from ..models import Group, Post, User
 
 POSTS_ON_PAGE = 13
-
+SECOND_PAGE_POSTS = 3
 
 class PostViewsTest(TestCase):
     @classmethod
@@ -145,7 +145,7 @@ class PaginatorViewsTest(TestCase):
                 len(self.guest_client.get(
                     page + '?page=2'
                 ).context['page_obj']),
-                settings.SECOND_PAGE_POSTS
+                SECOND_PAGE_POSTS
             )
             self.assertEqual(
                 len(self.authorized_client.get(page).context['page_obj']),
@@ -155,5 +155,5 @@ class PaginatorViewsTest(TestCase):
                 len(self.authorized_client.get(
                     page + '?page=2'
                 ).context['page_obj']),
-                settings.SECOND_PAGE_POSTS
+                SECOND_PAGE_POSTS
             )
