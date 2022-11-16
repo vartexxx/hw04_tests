@@ -14,10 +14,10 @@ class UsersURLTests(TestCase):
         cls.user = User.objects.create_user(username='user')
 
     def setUp(self) -> None:
-        self.guest_client = Client()
+        self.guest = Client()
 
-        self.authorized_client = Client()
-        self.authorized_client.force_login(self.user)
+        self.another = Client()
+        self.another.force_login(self.user)
 
     def test_users_urls_exist_at_desired_location_for_guests(self):
         """Страницы доступны для неавторизованных пользователей"""
@@ -40,7 +40,7 @@ class UsersURLTests(TestCase):
         }
         for url, http_status in urls_collection.items():
             with self.subTest(address=url):
-                response = self.guest_client.get(url)
+                response = self.guest.get(url)
                 self.assertEqual(response.status_code, http_status)
 
     def test_users_urls_exist_at_desired_location_for_authorized_user(self):
@@ -58,5 +58,5 @@ class UsersURLTests(TestCase):
         }
         for url, http_status in urls_collection.items():
             with self.subTest(address=url):
-                response = self.authorized_client.get(url)
+                response = self.another.get(url)
                 self.assertEqual(response.status_code, http_status)

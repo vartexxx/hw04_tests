@@ -9,6 +9,7 @@ SLUG_1 = 'slug-one'
 SLUG_2 = 'slug-two'
 
 POST_CREATE_URL = reverse('posts:post_create')
+PROFILE_URL = reverse('posts:profile', args=[USERNAME])
 
 
 class PostsCreateFormTests(TestCase):
@@ -28,17 +29,16 @@ class PostsCreateFormTests(TestCase):
         )
         cls.post = Post.objects.create(
             author=cls.user,
-            text='Тестовый пост',
+            text='Тестовый пост 1',
             group=cls.group_1,
         )
         cls.POST_DETAIL_URL = reverse('posts:post_detail', args=[cls.post.id])
         cls.POST_EDIT_URL = reverse('posts:post_edit', args=[cls.post.id])
-        cls.PROFILE_URL = reverse('posts:profile', args=[cls.post.author])
         cls.posts_initially = Post.objects.count()
 
     def setUp(self) -> None:
-        self.authorized_client = Client()
-        self.authorized_client.force_login(self.user)
+        self.another = Client()
+        self.another.force_login(self.user)
 
     def test_create_post(self):
         """Проверка создания новой записи"""
@@ -46,12 +46,20 @@ class PostsCreateFormTests(TestCase):
         post_form_data = {
             'text': 'Тестовый пост',
             'group': self.group_1.id,
-            'author': self.post.author,
         }
-        response = self.authorized_client.post(
+        response = self.another.post(
             POST_CREATE_URL,
             data=post_form_data,
             follow=True
+        )
+        self.assertEqual(
+            len(response.context.get("page_obj").object_list),
+            2
+        )
+        post = response.context['page_obj'][0]
+        self.assertEqual(
+            response.context.get("page_obj").object_list[0],
+            post
         )
         self.assertEqual(
             Post.objects.count(),
@@ -60,43 +68,43 @@ class PostsCreateFormTests(TestCase):
         created_posts = set(Post.objects.all()) - post_before_create
         self.assertEqual(len(created_posts), 1)
         self.assertEqual(
-            Post.objects.get(id=self.post.id).text,
+            post.text,
             post_form_data['text']
         )
         self.assertEqual(
-            Post.objects.get(id=self.post.id).group.id,
+            post.group.id,
             post_form_data['group']
         )
         self.assertEqual(
-            Post.objects.get(id=self.post.id).author,
-            post_form_data['author']
+            post.author,
+            self.user
         )
-        self.assertRedirects(response, self.PROFILE_URL)
+        self.assertRedirects(response, PROFILE_URL)
 
     def test_edit_post(self):
         """Проверка редактирования записи"""
         post_edit_form_data = {
-            'text': 'Изменённый текст',
+            'text': 'Изменённый текст 123',
             'group': self.group_2.id,
-            'author': self.post.author
         }
-        response = self.authorized_client.post(
+        response = self.another.post(
             self.POST_EDIT_URL,
             data=post_edit_form_data,
             follow=True
         )
+        post = response.context['post']
         self.assertRedirects(response, self.POST_DETAIL_URL)
         self.assertEqual(
-            Post.objects.get(id=self.post.id).text,
+            post.text,
             post_edit_form_data['text']
         )
         self.assertEqual(
-            Post.objects.get(id=self.post.id).group.id,
+            post.group.id,
             post_edit_form_data['group']
         )
         self.assertEqual(
-            Post.objects.get(id=self.post.id).author,
-            post_edit_form_data['author']
+            post.author,
+            self.user
         )
 
     def test_create_post_page_show_correct_context(self):
@@ -104,7 +112,7 @@ class PostsCreateFormTests(TestCase):
         Шаблон create_post при создании поста сформирован
         с правильным контекстом.
         """
-        response = self.authorized_client.get(POST_CREATE_URL)
+        response = self.another.get(POST_CREATE_URL)
         form_fields = {
             'text': forms.fields.CharField,
             'group': forms.fields.ChoiceField,

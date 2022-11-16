@@ -11,7 +11,7 @@ class PostsCreateFormTests(TestCase):
         super().setUpClass()
 
     def setUp(self) -> None:
-        self.guest_client = Client()
+        self.guest = Client()
 
     def test_users_create_new_user(self):
         """Тест создания нового пользователя"""
@@ -24,7 +24,7 @@ class PostsCreateFormTests(TestCase):
             'password1': '123456789yandex',
             'password2': '123456789yandex'
         }
-        response = self.guest_client.post(
+        response = self.guest.post(
             reverse('users:signup'),
             data=users_form_data,
             follow=True

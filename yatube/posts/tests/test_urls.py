@@ -1,5 +1,3 @@
-from http import HTTPStatus
-
 from django.test import TestCase, Client
 from django.urls import reverse
 
@@ -15,6 +13,10 @@ PROFILE_URL = reverse('posts:profile', args=[USERNAME])
 POST_CREATE_URL = reverse('posts:post_create')
 LOGIN = reverse('users:login')
 NON_EXISTING_PAGE_URL = '/non_existing_page/'
+
+OK = 200
+FOUND = 302
+NOT_FOUND = 404
 
 
 class PostsURLTests(TestCase):
@@ -37,13 +39,38 @@ class PostsURLTests(TestCase):
         cls.POST_EDIT_URL = reverse('posts:post_edit', args=[cls.post.id])
 
     def setUp(self) -> None:
-        self.guest_client = Client()
+        self.guest = Client()
+        self.another = Client()
+        self.another.force_login(self.user)
+        self.author = Client()
+        self.author.force_login(self.user_author)
 
-        self.authorized_client = Client()
-        self.authorized_client.force_login(self.user)
+        self.redirect_urls = [
+            [
+                POST_CREATE_URL,
+                self.guest,
+                f'{LOGIN}?next={POST_CREATE_URL}'
+            ],
+            [
+                self.POST_EDIT_URL,
+                self.guest,
+                f'{LOGIN}?next={self.POST_EDIT_URL}'
+            ],
+            [
+                self.POST_EDIT_URL,
+                self.another,
+                self.POST_DETAIL_URL
+            ],
+        ]
 
-        self.author_client = Client()
-        self.author_client.force_login(self.user_author)
+        self.urls_for_template = [
+            ['posts/index.html', INDEX_URL],
+            ['posts/group_list.html', GROUP_LIST_URL],
+            ['posts/profile.html', PROFILE_URL],
+            ['posts/create_post.html', POST_CREATE_URL],
+            ['posts/post_detail.html', self.POST_DETAIL_URL],
+            ['posts/create_post.html', self.POST_EDIT_URL],
+        ]
 
     def test_posts_urls_correct_status_code(self):
         """
@@ -51,19 +78,19 @@ class PostsURLTests(TestCase):
         авторизации пользователей.
         """
         urls = [
-            [INDEX_URL, self.guest_client, HTTPStatus.OK],
-            [GROUP_LIST_URL, self.guest_client, HTTPStatus.OK],
-            [PROFILE_URL, self.guest_client, HTTPStatus.OK],
-            [self.POST_DETAIL_URL, self.guest_client, HTTPStatus.OK],
-            [NON_EXISTING_PAGE_URL, self.guest_client, HTTPStatus.NOT_FOUND],
-            [POST_CREATE_URL, self.guest_client, HTTPStatus.FOUND],
-            [self.POST_EDIT_URL, self.guest_client, HTTPStatus.FOUND],
-            [self.POST_EDIT_URL, self.author_client, HTTPStatus.OK],
-            [self.POST_EDIT_URL, self.authorized_client, HTTPStatus.FOUND],
-            [POST_CREATE_URL, self.authorized_client, HTTPStatus.OK],
+            [INDEX_URL, self.guest, OK],
+            [GROUP_LIST_URL, self.guest, OK],
+            [PROFILE_URL, self.guest, OK],
+            [self.POST_DETAIL_URL, self.guest, OK],
+            [NON_EXISTING_PAGE_URL, self.guest, NOT_FOUND],
+            [POST_CREATE_URL, self.guest, FOUND],
+            [self.POST_EDIT_URL, self.guest, FOUND],
+            [self.POST_EDIT_URL, self.author, OK],
+            [self.POST_EDIT_URL, self.another, FOUND],
+            [POST_CREATE_URL, self.another, OK],
         ]
         for url, client, status in urls:
-            with self.subTest(url=url):
+            with self.subTest(url=url, client=client):
                 self.assertEqual(
                     client.get(url).status_code,
                     status
@@ -71,26 +98,18 @@ class PostsURLTests(TestCase):
 
     def test_posts_urls_correct_redirect(self):
         """Проверка редиректов со страниц."""
-        redirect_urls = [
-            [
-                POST_CREATE_URL,
-                self.guest_client,
-                f'{LOGIN}?next={POST_CREATE_URL}'
-            ],
-            [
-                self.POST_EDIT_URL,
-                self.guest_client,
-                f'{LOGIN}?next={self.POST_EDIT_URL}'
-            ],
-            [
-                self.POST_EDIT_URL,
-                self.authorized_client,
-                self.POST_DETAIL_URL
-            ],
-        ]
-        for url, client, redirect in redirect_urls:
-            with self.subTest(url=url):
+        for url, client, redirect in self.redirect_urls:
+            with self.subTest(url=url, client=client):
                 self.assertRedirects(
                     client.get(url, follow=True),
                     redirect
+                )
+
+    def test_posts_urls_uses_correct_templates(self):
+        """Проверка использования URL корректных шаблонов."""
+        for template, url in self.urls_for_template:
+            with self.subTest(url=url):
+                self.assertTemplateUsed(
+                    self.author.get(url),
+                    template
                 )

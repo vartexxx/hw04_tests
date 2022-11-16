@@ -1,45 +1,26 @@
 from django.test import TestCase
-from django.urls import resolve, reverse
+from django.urls import reverse
 
 SLUG_FOR_TEST = 'slug-for-test'
 USERNAME_FOR_TEST = 'user'
 POST_ID = 1
 
-urls = {
-    'posts:index': {
-        'reverse': reverse('posts:index'),
-        'url': '/'
-    },
-    'posts:group_list': {
-        'reverse': reverse('posts:group_list', args=[SLUG_FOR_TEST]),
-        'url': f'/group/{SLUG_FOR_TEST}/'
-    },
-    'posts:profile': {
-        'reverse': reverse('posts:profile', args=[USERNAME_FOR_TEST]),
-        'url': f'/profile/{USERNAME_FOR_TEST}/'
-    },
-    'posts:post_create': {
-        'reverse': reverse('posts:post_create'),
-        'url': '/create/'
-    },
-    'posts:post_detail': {
-        'reverse': reverse('posts:post_detail', args=[POST_ID]),
-        'url': f'/posts/{POST_ID}/'
-    },
-    'posts:post_edit': {
-        'reverse': reverse('posts:post_edit', args=[POST_ID]),
-        'url': f'/posts/{POST_ID}/edit/'
-    }
-}
+urls = [
+    ['/', 'index', None],
+    [f'/group/{SLUG_FOR_TEST}/', 'group_list', [SLUG_FOR_TEST]],
+    [f'/profile/{USERNAME_FOR_TEST}/', 'profile', [USERNAME_FOR_TEST]],
+    ['/create/', 'post_create', None],
+    [f'/posts/{POST_ID}/', 'post_detail', [POST_ID]],
+    [f'/posts/{POST_ID}/edit/', 'post_edit', [POST_ID]],
+]
 
 
 class RoutesTest(TestCase):
 
     def test_urls_routes(self):
         """Проверка ожидаемых маршрутов URL"""
-        for namespace, key in urls.items():
-            with self.subTest(view=namespace, url=key['url']):
-                self.assertEqual(
-                    resolve(key['url']).view_name,
-                    namespace
-                )
+        for url, reversed_url, args in urls:
+            self.assertEqual(
+                url,
+                reverse(('posts:' + reversed_url), args=args)
+            )

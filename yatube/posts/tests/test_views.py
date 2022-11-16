@@ -1,13 +1,10 @@
+from django.conf import settings
 from django.test import Client, TestCase
 from django.urls import reverse
 
 from ..models import Group, Post, User
 
-POSTS_ON_PAGES = 55
-POSTS_ON_PAGE = 10
-POSTS_ON_LAST_PAGE = POSTS_ON_PAGES % 10
-num_of_page = f'?page={POSTS_ON_PAGES // POSTS_ON_PAGE + 1}'
-
+POSTS_ON_PAGES = 60
 
 USERNAME = 'user'
 TEST_USER = 'test_user'
@@ -37,53 +34,78 @@ class PostViewsTest(TestCase):
             slug=SLUG_2,
             description='Тестовое описание 2',
         )
+        cls.post = Post.objects.create(
+            author=cls.user,
+            text='Тестовый пост',
+            group=cls.group,
+        )
+        cls.POST_DETAIL_URL = reverse('posts:post_detail', args=[cls.post.id])
+        cls.POST_EDIT_URL = reverse('posts:post_edit', args=[cls.post.id])
 
     def setUp(self) -> None:
-        self.authorized_client = Client()
-        self.authorized_client.force_login(self.user)
-        self.post = Post.objects.create(
-            author=self.user,
-            text='Тестовый пост',
-            group=self.group,
-        )
+        self.another = Client()
+        self.another.force_login(self.user)
 
     def test_pages_show_correct_context(self):
         """
-        Шаблоны страниц index, group_list, profile
+        Шаблоны страниц index, group_list, profile, post_detail, post_edit
         сформированы с правильным контекстом.
         """
         urls = [
-            [INDEX_URL, self.authorized_client.get(INDEX_URL)],
-            [GROUP_LIST_URL_1, self.authorized_client.get(GROUP_LIST_URL_1)],
-            [PROFILE_URL, self.authorized_client.get(PROFILE_URL)],
+            [INDEX_URL, self.another.get(INDEX_URL)],
+            [GROUP_LIST_URL_1, self.another.get(GROUP_LIST_URL_1)],
+            [PROFILE_URL, self.another.get(PROFILE_URL)],
+            [self.POST_DETAIL_URL, self.another.get(self.POST_DETAIL_URL)],
+            [self.POST_EDIT_URL, self.another.get(self.POST_EDIT_URL)],
         ]
         for url, client in urls:
             with self.subTest(url=url):
-                self.assertEqual(
-                    client.context['page_obj'][0].text,
-                    self.post.text
-                )
-                self.assertEqual(
-                    client.context['page_obj'][0].author,
-                    self.post.author
-                )
-                self.assertEqual(
-                    client.context['page_obj'][0].group,
-                    self.post.group
-                )
+                try:
+                    post = client.context['page_obj'][0]
+                    self.assertEqual(
+                        client.context.get("page_obj").object_list[0],
+                        post
+                    )
+                    self.assertEqual(
+                        post.text,
+                        self.post.text
+                    )
+                    self.assertEqual(
+                        post.author,
+                        self.post.author
+                    )
+                    self.assertEqual(
+                        post.group,
+                        self.post.group
+                    )
+                except KeyError:
+                    post = client.context['post']
+                    self.assertEqual(
+                        post.text,
+                        self.post.text
+                    )
+                    self.assertEqual(
+                        post.group.id,
+                        self.group.id
+                    )
+                    self.assertEqual(
+                        post.author,
+                        self.user
+                    )
 
     def test_posts_group_context_group_list(self):
         """Группа в контексте групп-ленты без искажения атрибутов."""
-        self.assertEqual(
-            self.authorized_client.get(GROUP_LIST_URL_1).context.get('group'),
-            self.group
-        )
+        group = self.another.get(GROUP_LIST_URL_1).context.get('group')
+        self.assertEqual(group, self.group)
+        self.assertEqual(group.title, self.group.title)
+        self.assertEqual(group.slug, self.group.slug)
+        self.assertEqual(group.description, self.group.description)
 
     def test_post_not_in_another_group(self):
         """Пост не попал на чужую групп-ленту."""
         self.assertNotIn(
             self.post,
-            self.authorized_client.get(GROUP_LIST_URL_2).context.get(
+            self.another.get(GROUP_LIST_URL_2).context.get(
                 'page_obj'
             )
         )
@@ -92,45 +114,45 @@ class PostViewsTest(TestCase):
         """Проверка наличия автора в контексте профиля."""
         self.assertEqual(
             self.user,
-            self.authorized_client.get(PROFILE_URL).context.get('author')
+            self.another.get(PROFILE_URL).context.get('author')
         )
 
 
 class PaginatorViewsTest(TestCase):
     @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-
-        cls.user = User.objects.create_user(username=USERNAME)
-        cls.group = Group.objects.create(
+    def setUp(self) -> None:
+        self.user = User.objects.create_user(username=USERNAME)
+        self.group = Group.objects.create(
             title='Тестовая группа',
             slug=SLUG_TEST,
             description='Тестовое описание',
         )
-        post_list = [
+        Post.objects.bulk_create([
             Post(
-                author=cls.user,
+                author=self.user,
                 text=f'Тестовый текст {i}-го поста',
-                group=cls.group
+                group=self.group
             ) for i in range(POSTS_ON_PAGES)
-        ]
-        Post.objects.bulk_create(post_list)
-
-    def setUp(self) -> None:
-        self.guest_client = Client()
+        ])
+        self.guest = Client()
 
     def test_correct_the_number_of_posts_on_the_pages(self):
         """Проверка количества постов на странице первой и последней."""
+        NUM_OF_PAGE = f'?page={POSTS_ON_PAGES // settings.LIMIT_OF_POSTS + 1}'
+        POSTS_ON_LAST_PAGE = POSTS_ON_PAGES % 10
+        if POSTS_ON_PAGES % 10 == 0:
+            NUM_OF_PAGE = f'?page={POSTS_ON_PAGES // settings.LIMIT_OF_POSTS}'
+            POSTS_ON_LAST_PAGE = settings.LIMIT_OF_POSTS
         urls = [
-            [INDEX_URL, POSTS_ON_PAGE],
-            [INDEX_URL + num_of_page, POSTS_ON_LAST_PAGE],
-            [GROUP_LIST_URL_3, POSTS_ON_PAGE],
-            [GROUP_LIST_URL_3 + num_of_page, POSTS_ON_LAST_PAGE],
-            [PROFILE_URL, POSTS_ON_PAGE],
-            [PROFILE_URL + num_of_page, POSTS_ON_LAST_PAGE],
+            [INDEX_URL, settings.LIMIT_OF_POSTS],
+            [INDEX_URL + NUM_OF_PAGE, POSTS_ON_LAST_PAGE],
+            [GROUP_LIST_URL_3, settings.LIMIT_OF_POSTS],
+            [GROUP_LIST_URL_3 + NUM_OF_PAGE, POSTS_ON_LAST_PAGE],
+            [PROFILE_URL, settings.LIMIT_OF_POSTS],
+            [PROFILE_URL + NUM_OF_PAGE, POSTS_ON_LAST_PAGE],
         ]
         for page, posts in urls:
             self.assertEqual(
-                len(self.guest_client.get(page).context['page_obj']),
+                len(self.guest.get(page).context['page_obj']),
                 posts
             )

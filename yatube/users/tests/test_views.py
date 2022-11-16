@@ -13,9 +13,9 @@ class UsersViewsTest(TestCase):
         cls.user = User.objects.create_user(username='user')
 
     def setUp(self) -> None:
-        self.guest_client = Client()
-        self.authorized_client = Client()
-        self.authorized_client.force_login(self.user)
+        self.guest = Client()
+        self.another = Client()
+        self.another.force_login(self.user)
 
     def test_users_authorized_pages_use_correct_template(self):
         """
@@ -42,7 +42,7 @@ class UsersViewsTest(TestCase):
         }
         for template, reverse_name in templates_pages_names.items():
             with self.subTest(reverse_name=reverse_name):
-                response = self.authorized_client.get(reverse_name)
+                response = self.another.get(reverse_name)
                 self.assertTemplateUsed(response, template)
 
     def test_users_no_authorized_pages_use_correct_template(self):
@@ -74,7 +74,7 @@ class UsersViewsTest(TestCase):
         }
         for template, reverse_name in templates_pages_names.items():
             with self.subTest(reverse_name=reverse_name):
-                response = self.guest_client.get(reverse_name)
+                response = self.guest.get(reverse_name)
                 self.assertTemplateUsed(response, template)
 
     def test_signup_users_page_show_correct_context(self):
@@ -82,7 +82,7 @@ class UsersViewsTest(TestCase):
         Шаблон signup при регистрации пользователя сформирован
         с правильным контекстом.
         """
-        response = self.authorized_client.get(reverse('users:signup'))
+        response = self.another.get(reverse('users:signup'))
         form_users_fields = {
             'first_name': forms.fields.CharField,
             'last_name': forms.fields.CharField,
