@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from django.test import TestCase, Client
 from django.urls import reverse
 
@@ -14,9 +15,9 @@ POST_CREATE_URL = reverse('posts:post_create')
 LOGIN = reverse('users:login')
 NON_EXISTING_PAGE_URL = '/non_existing_page/'
 
-OK = 200
-FOUND = 302
-NOT_FOUND = 404
+OK = HTTPStatus.OK
+FOUND = HTTPStatus.FOUND
+NOT_FOUND = HTTPStatus.NOT_FOUND
 
 
 class PostsURLTests(TestCase):
@@ -45,33 +46,6 @@ class PostsURLTests(TestCase):
         self.author = Client()
         self.author.force_login(self.user_author)
 
-        self.redirect_urls = [
-            [
-                POST_CREATE_URL,
-                self.guest,
-                f'{LOGIN}?next={POST_CREATE_URL}'
-            ],
-            [
-                self.POST_EDIT_URL,
-                self.guest,
-                f'{LOGIN}?next={self.POST_EDIT_URL}'
-            ],
-            [
-                self.POST_EDIT_URL,
-                self.another,
-                self.POST_DETAIL_URL
-            ],
-        ]
-
-        self.urls_for_template = [
-            ['posts/index.html', INDEX_URL],
-            ['posts/group_list.html', GROUP_LIST_URL],
-            ['posts/profile.html', PROFILE_URL],
-            ['posts/create_post.html', POST_CREATE_URL],
-            ['posts/post_detail.html', self.POST_DETAIL_URL],
-            ['posts/create_post.html', self.POST_EDIT_URL],
-        ]
-
     def test_posts_urls_correct_status_code(self):
         """
         Проверка доступа к URL различного уровня
@@ -91,25 +65,41 @@ class PostsURLTests(TestCase):
         ]
         for url, client, status in urls:
             with self.subTest(url=url, client=client):
-                self.assertEqual(
-                    client.get(url).status_code,
-                    status
-                )
+                self.assertEqual(client.get(url).status_code, status)
 
     def test_posts_urls_correct_redirect(self):
         """Проверка редиректов со страниц."""
+        self.redirect_urls = [
+            [
+                POST_CREATE_URL,
+                self.guest,
+                f'{LOGIN}?next={POST_CREATE_URL}'
+            ],
+            [
+                self.POST_EDIT_URL,
+                self.guest,
+                f'{LOGIN}?next={self.POST_EDIT_URL}'
+            ],
+            [
+                self.POST_EDIT_URL,
+                self.another,
+                self.POST_DETAIL_URL
+            ],
+        ]
         for url, client, redirect in self.redirect_urls:
             with self.subTest(url=url, client=client):
-                self.assertRedirects(
-                    client.get(url, follow=True),
-                    redirect
-                )
+                self.assertRedirects(client.get(url, follow=True), redirect)
 
     def test_posts_urls_uses_correct_templates(self):
         """Проверка использования URL корректных шаблонов."""
+        self.urls_for_template = [
+            ['posts/index.html', INDEX_URL],
+            ['posts/group_list.html', GROUP_LIST_URL],
+            ['posts/profile.html', PROFILE_URL],
+            ['posts/create_post.html', POST_CREATE_URL],
+            ['posts/post_detail.html', self.POST_DETAIL_URL],
+            ['posts/create_post.html', self.POST_EDIT_URL],
+        ]
         for template, url in self.urls_for_template:
             with self.subTest(url=url):
-                self.assertTemplateUsed(
-                    self.author.get(url),
-                    template
-                )
+                self.assertTemplateUsed(self.author.get(url), template)

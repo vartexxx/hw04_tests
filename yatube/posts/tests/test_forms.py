@@ -56,29 +56,16 @@ class PostsCreateFormTests(TestCase):
             len(response.context.get("page_obj").object_list),
             2
         )
-        post = response.context['page_obj'][0]
-        self.assertEqual(
-            response.context.get("page_obj").object_list[0],
-            post
-        )
         self.assertEqual(
             Post.objects.count(),
             self.posts_initially + 1
         )
         created_posts = set(Post.objects.all()) - post_before_create
         self.assertEqual(len(created_posts), 1)
-        self.assertEqual(
-            post.text,
-            post_form_data['text']
-        )
-        self.assertEqual(
-            post.group.id,
-            post_form_data['group']
-        )
-        self.assertEqual(
-            post.author,
-            self.user
-        )
+        post = created_posts.pop()
+        self.assertEqual(post.text, post_form_data['text'])
+        self.assertEqual(post.group.id, post_form_data['group'])
+        self.assertEqual(post.author, self.post.author)
         self.assertRedirects(response, PROFILE_URL)
 
     def test_edit_post(self):
@@ -94,18 +81,9 @@ class PostsCreateFormTests(TestCase):
         )
         post = response.context['post']
         self.assertRedirects(response, self.POST_DETAIL_URL)
-        self.assertEqual(
-            post.text,
-            post_edit_form_data['text']
-        )
-        self.assertEqual(
-            post.group.id,
-            post_edit_form_data['group']
-        )
-        self.assertEqual(
-            post.author,
-            self.user
-        )
+        self.assertEqual(post.text, post_edit_form_data['text'])
+        self.assertEqual(post.group.id, post_edit_form_data['group'])
+        self.assertEqual(post.author, self.user)
 
     def test_create_post_page_show_correct_context(self):
         """

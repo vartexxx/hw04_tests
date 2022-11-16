@@ -4,7 +4,6 @@ from django.urls import reverse
 
 from ..models import Group, Post, User
 
-POSTS_ON_PAGES = 60
 
 USERNAME = 'user'
 TEST_USER = 'test_user'
@@ -40,7 +39,6 @@ class PostViewsTest(TestCase):
             group=cls.group,
         )
         cls.POST_DETAIL_URL = reverse('posts:post_detail', args=[cls.post.id])
-        cls.POST_EDIT_URL = reverse('posts:post_edit', args=[cls.post.id])
 
     def setUp(self) -> None:
         self.another = Client()
@@ -52,46 +50,43 @@ class PostViewsTest(TestCase):
         сформированы с правильным контекстом.
         """
         urls = [
-            [INDEX_URL, self.another.get(INDEX_URL)],
-            [GROUP_LIST_URL_1, self.another.get(GROUP_LIST_URL_1)],
-            [PROFILE_URL, self.another.get(PROFILE_URL)],
-            [self.POST_DETAIL_URL, self.another.get(self.POST_DETAIL_URL)],
-            [self.POST_EDIT_URL, self.another.get(self.POST_EDIT_URL)],
+            [
+                INDEX_URL,
+                self.another.get(INDEX_URL),
+                'page_obj'
+            ],
+            [
+                GROUP_LIST_URL_1,
+                self.another.get(GROUP_LIST_URL_1),
+                'page_obj'
+            ],
+            [
+                PROFILE_URL,
+                self.another.get(PROFILE_URL),
+                'page_obj'
+            ],
+            [
+                self.POST_DETAIL_URL,
+                self.another.get(self.POST_DETAIL_URL),
+                'post'
+            ],
         ]
-        for url, client in urls:
+        for url, client, key in urls:
             with self.subTest(url=url):
-                try:
+                if key == 'page_obj':
+                    self.assertEqual(
+                        len(client.context.get("page_obj").object_list),
+                        1
+                    )
                     post = client.context['page_obj'][0]
-                    self.assertEqual(
-                        client.context.get("page_obj").object_list[0],
-                        post
-                    )
-                    self.assertEqual(
-                        post.text,
-                        self.post.text
-                    )
-                    self.assertEqual(
-                        post.author,
-                        self.post.author
-                    )
-                    self.assertEqual(
-                        post.group,
-                        self.post.group
-                    )
-                except KeyError:
+                    self.assertEqual(post.text, self.post.text)
+                    self.assertEqual(post.author, self.post.author)
+                    self.assertEqual(post.group, self.post.group)
+                elif key == 'post':
                     post = client.context['post']
-                    self.assertEqual(
-                        post.text,
-                        self.post.text
-                    )
-                    self.assertEqual(
-                        post.group.id,
-                        self.group.id
-                    )
-                    self.assertEqual(
-                        post.author,
-                        self.user
-                    )
+                    self.assertEqual(post.text, self.post.text)
+                    self.assertEqual(post.group.id, self.group.id)
+                    self.assertEqual(post.author, self.post.author)
 
     def test_posts_group_context_group_list(self):
         """Группа в контексте групп-ленты без искажения атрибутов."""
@@ -127,32 +122,34 @@ class PaginatorViewsTest(TestCase):
             slug=SLUG_TEST,
             description='Тестовое описание',
         )
-        Post.objects.bulk_create([
+        Post.objects.bulk_create(
             Post(
                 author=self.user,
                 text=f'Тестовый текст {i}-го поста',
                 group=self.group
-            ) for i in range(POSTS_ON_PAGES)
-        ])
-        self.guest = Client()
+            ) for i in range(settings.LIMIT_OF_POSTS + 1)
+        )
+        self.another = Client()
+        self.another.force_login(self.user)
 
     def test_correct_the_number_of_posts_on_the_pages(self):
-        """Проверка количества постов на странице первой и последней."""
-        NUM_OF_PAGE = f'?page={POSTS_ON_PAGES // settings.LIMIT_OF_POSTS + 1}'
-        POSTS_ON_LAST_PAGE = POSTS_ON_PAGES % 10
-        if POSTS_ON_PAGES % 10 == 0:
-            NUM_OF_PAGE = f'?page={POSTS_ON_PAGES // settings.LIMIT_OF_POSTS}'
-            POSTS_ON_LAST_PAGE = settings.LIMIT_OF_POSTS
+        """Проверка количества постов на странице первой и второй."""
         urls = [
-            [INDEX_URL, settings.LIMIT_OF_POSTS],
-            [INDEX_URL + NUM_OF_PAGE, POSTS_ON_LAST_PAGE],
-            [GROUP_LIST_URL_3, settings.LIMIT_OF_POSTS],
-            [GROUP_LIST_URL_3 + NUM_OF_PAGE, POSTS_ON_LAST_PAGE],
-            [PROFILE_URL, settings.LIMIT_OF_POSTS],
-            [PROFILE_URL + NUM_OF_PAGE, POSTS_ON_LAST_PAGE],
+            [INDEX_URL],
+            [GROUP_LIST_URL_3],
+            [PROFILE_URL],
         ]
-        for page, posts in urls:
-            self.assertEqual(
-                len(self.guest.get(page).context['page_obj']),
-                posts
-            )
+        for url, in urls:
+            with self.subTest(url=url):
+                self.assertEqual(
+                    len(self.another.get(url).context.get(
+                        "page_obj"
+                    ).object_list),
+                    settings.LIMIT_OF_POSTS
+                )
+                self.assertEqual(
+                    len(self.another.get(url + '?page=2').context.get(
+                        "page_obj"
+                    ).object_list),
+                    1
+                )
