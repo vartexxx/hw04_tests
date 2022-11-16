@@ -69,7 +69,7 @@ class PostsURLTests(TestCase):
 
     def test_posts_urls_correct_redirect(self):
         """Проверка редиректов со страниц."""
-        self.redirect_urls = [
+        redirect_urls = [
             [
                 POST_CREATE_URL,
                 self.guest,
@@ -86,13 +86,13 @@ class PostsURLTests(TestCase):
                 self.POST_DETAIL_URL
             ],
         ]
-        for url, client, redirect in self.redirect_urls:
+        for url, client, redirect in redirect_urls:
             with self.subTest(url=url, client=client):
                 self.assertRedirects(client.get(url, follow=True), redirect)
 
     def test_posts_urls_uses_correct_templates(self):
         """Проверка использования URL корректных шаблонов."""
-        self.urls_for_template = [
+        urls_for_template = [
             ['posts/index.html', INDEX_URL],
             ['posts/group_list.html', GROUP_LIST_URL],
             ['posts/profile.html', PROFILE_URL],
@@ -100,6 +100,6 @@ class PostsURLTests(TestCase):
             ['posts/post_detail.html', self.POST_DETAIL_URL],
             ['posts/create_post.html', self.POST_EDIT_URL],
         ]
-        for template, url in self.urls_for_template:
+        for template, url in urls_for_template:
             with self.subTest(url=url):
                 self.assertTemplateUsed(self.author.get(url), template)

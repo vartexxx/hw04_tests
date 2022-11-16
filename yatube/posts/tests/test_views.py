@@ -44,49 +44,49 @@ class PostViewsTest(TestCase):
         self.another = Client()
         self.another.force_login(self.user)
 
+    def asert_page_has_attribute(self, post):
+        self.assertEqual(post.text, self.post.text)
+        self.assertEqual(post.author, self.post.author)
+        self.assertEqual(post.group, self.post.group)
+        self.assertEqual(post.group.id, self.group.id)
+
     def test_pages_show_correct_context(self):
         """
-        Шаблоны страниц index, group_list, profile, post_detail, post_edit
+        Шаблоны страниц index, group_list, profile, post_detail
         сформированы с правильным контекстом.
         """
         urls = [
             [
                 INDEX_URL,
-                self.another.get(INDEX_URL),
                 'page_obj'
             ],
             [
                 GROUP_LIST_URL_1,
-                self.another.get(GROUP_LIST_URL_1),
                 'page_obj'
             ],
             [
                 PROFILE_URL,
-                self.another.get(PROFILE_URL),
                 'page_obj'
             ],
             [
                 self.POST_DETAIL_URL,
-                self.another.get(self.POST_DETAIL_URL),
                 'post'
             ],
         ]
-        for url, client, key in urls:
-            with self.subTest(url=url):
+        for url, key in urls:
+            with self.subTest(url=url, key=key):
                 if key == 'page_obj':
                     self.assertEqual(
-                        len(client.context.get("page_obj").object_list),
+                        len(self.another.get(url).context.get(
+                            'page_obj'
+                        ).object_list),
                         1
                     )
-                    post = client.context['page_obj'][0]
-                    self.assertEqual(post.text, self.post.text)
-                    self.assertEqual(post.author, self.post.author)
-                    self.assertEqual(post.group, self.post.group)
+                    post = self.another.get(url).context['page_obj'][0]
+                    self.asert_page_has_attribute(post)
                 elif key == 'post':
-                    post = client.context['post']
-                    self.assertEqual(post.text, self.post.text)
-                    self.assertEqual(post.group.id, self.group.id)
-                    self.assertEqual(post.author, self.post.author)
+                    post = self.another.get(url).context['post']
+                    self.asert_page_has_attribute(post)
 
     def test_posts_group_context_group_list(self):
         """Группа в контексте групп-ленты без искажения атрибутов."""
@@ -134,22 +134,18 @@ class PaginatorViewsTest(TestCase):
 
     def test_correct_the_number_of_posts_on_the_pages(self):
         """Проверка количества постов на странице первой и второй."""
+        NEXT_PAGE = '?page=2'
         urls = [
-            [INDEX_URL],
-            [GROUP_LIST_URL_3],
-            [PROFILE_URL],
+            [INDEX_URL, settings.LIMIT_OF_POSTS],
+            [GROUP_LIST_URL_3, settings.LIMIT_OF_POSTS],
+            [PROFILE_URL, settings.LIMIT_OF_POSTS],
+            [INDEX_URL + NEXT_PAGE, 1],
+            [GROUP_LIST_URL_3 + NEXT_PAGE, 1],
+            [PROFILE_URL + NEXT_PAGE, 1],
         ]
-        for url, in urls:
+        for url, posts_count in urls:
             with self.subTest(url=url):
                 self.assertEqual(
-                    len(self.another.get(url).context.get(
-                        "page_obj"
-                    ).object_list),
-                    settings.LIMIT_OF_POSTS
-                )
-                self.assertEqual(
-                    len(self.another.get(url + '?page=2').context.get(
-                        "page_obj"
-                    ).object_list),
-                    1
+                    len(self.another.get(url).context['page_obj']),
+                    posts_count
                 )

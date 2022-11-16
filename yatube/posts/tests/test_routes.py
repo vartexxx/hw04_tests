@@ -19,8 +19,8 @@ class RoutesTest(TestCase):
 
     def test_urls_routes(self):
         """Проверка ожидаемых маршрутов URL"""
-        for url, path, args in urls:
+        for url, route, args in urls:
             self.assertEqual(
                 url,
-                reverse((f'posts:{path}'), args=args)
+                reverse((f'posts:{route}'), args=args)
             )

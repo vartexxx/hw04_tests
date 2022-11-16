@@ -42,48 +42,44 @@ class PostsCreateFormTests(TestCase):
 
     def test_create_post(self):
         """Проверка создания новой записи"""
-        post_before_create = set(Post.objects.all())
-        post_form_data = {
+        posts_before_create_new = set(Post.objects.all())
+        form_data = {
             'text': 'Тестовый пост',
             'group': self.group_1.id,
         }
         response = self.another.post(
             POST_CREATE_URL,
-            data=post_form_data,
+            data=form_data,
             follow=True
-        )
-        self.assertEqual(
-            len(response.context.get("page_obj").object_list),
-            2
         )
         self.assertEqual(
             Post.objects.count(),
             self.posts_initially + 1
         )
-        created_posts = set(Post.objects.all()) - post_before_create
+        created_posts = set(Post.objects.all()) - posts_before_create_new
         self.assertEqual(len(created_posts), 1)
         post = created_posts.pop()
-        self.assertEqual(post.text, post_form_data['text'])
-        self.assertEqual(post.group.id, post_form_data['group'])
-        self.assertEqual(post.author, self.post.author)
+        self.assertEqual(post.text, form_data['text'])
+        self.assertEqual(post.group.id, form_data['group'])
+        self.assertEqual(post.author, self.user)
         self.assertRedirects(response, PROFILE_URL)
 
     def test_edit_post(self):
         """Проверка редактирования записи"""
-        post_edit_form_data = {
+        form_data = {
             'text': 'Изменённый текст 123',
             'group': self.group_2.id,
         }
         response = self.another.post(
             self.POST_EDIT_URL,
-            data=post_edit_form_data,
+            data=form_data,
             follow=True
         )
         post = response.context['post']
         self.assertRedirects(response, self.POST_DETAIL_URL)
-        self.assertEqual(post.text, post_edit_form_data['text'])
-        self.assertEqual(post.group.id, post_edit_form_data['group'])
-        self.assertEqual(post.author, self.user)
+        self.assertEqual(post.text, form_data['text'])
+        self.assertEqual(post.group.id, form_data['group'])
+        self.assertEqual(post.author, self.post.author)
 
     def test_create_post_page_show_correct_context(self):
         """
