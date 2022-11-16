@@ -48,7 +48,7 @@ class PostViewsTest(TestCase):
         self.assertEqual(post.text, self.post.text)
         self.assertEqual(post.author, self.post.author)
         self.assertEqual(post.group, self.post.group)
-        self.assertEqual(post.group.id, self.group.id)
+        self.assertEqual(post.id, self.post.id)
 
     def test_pages_show_correct_context(self):
         """
@@ -56,37 +56,19 @@ class PostViewsTest(TestCase):
         сформированы с правильным контекстом.
         """
         urls = [
-            [
-                INDEX_URL,
-                'page_obj'
-            ],
-            [
-                GROUP_LIST_URL_1,
-                'page_obj'
-            ],
-            [
-                PROFILE_URL,
-                'page_obj'
-            ],
-            [
-                self.POST_DETAIL_URL,
-                'post'
-            ],
+            [INDEX_URL, 'page_obj'],
+            [GROUP_LIST_URL_1, 'page_obj'],
+            [PROFILE_URL, 'page_obj'],
+            [self.POST_DETAIL_URL, 'post'],
         ]
         for url, key in urls:
             with self.subTest(url=url, key=key):
+                post = self.another.get(url)
                 if key == 'page_obj':
-                    self.assertEqual(
-                        len(self.another.get(url).context.get(
-                            'page_obj'
-                        ).object_list),
-                        1
-                    )
-                    post = self.another.get(url).context['page_obj'][0]
-                    self.asert_page_has_attribute(post)
+                    self.assertEqual(len(post.context.get(key)), 1)
+                    self.asert_page_has_attribute(post.context[key][0])
                 elif key == 'post':
-                    post = self.another.get(url).context['post']
-                    self.asert_page_has_attribute(post)
+                    self.asert_page_has_attribute(post.context[key])
 
     def test_posts_group_context_group_list(self):
         """Группа в контексте групп-ленты без искажения атрибутов."""
